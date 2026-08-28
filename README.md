@@ -1,6 +1,6 @@
-# Spotify-Song-Translator
+# spotify-song-translator
 
-# One-Week MVP Sprint Schedule
+# One-Week MVP Sprint 
 
 ---
 
