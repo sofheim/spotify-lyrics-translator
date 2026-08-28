@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text
+from sqlalchemy import Column, Integer, String, Text, Boolean
 from database import Base
 
 class Translation(Base):
@@ -7,5 +7,5 @@ class Translation(Base):
     id = Column(Integer, primary_key=True, index=True)
     song_name = Column(String, index=True)
     artist = Column(String, index=True)
-    original_lyrics = Column(Text)
-    translated_lyrics = Column(Text)
+    synced = Column(Boolean, default=False)  # real lrclib timing vs. estimated
+    lines_json = Column(Text)  # JSON list of {time_ms, original, translated}

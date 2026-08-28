@@ -27,6 +27,8 @@ export function useSpotifyPlayer(accessToken) {
   const [isPremiumError, setIsPremiumError] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTrackId, setCurrentTrackId] = useState(null)
+  const [duration, setDuration] = useState(0)
+  const [position, setPosition] = useState(0)
   const playerRef = useRef(null)
 
   useEffect(() => {
@@ -36,6 +38,7 @@ export function useSpotifyPlayer(accessToken) {
     }
 
     let cancelled = false
+    let pollInterval = null
 
     loadSpotifySdk().then((Spotify) => {
       if (cancelled) return
@@ -53,14 +56,26 @@ export function useSpotifyPlayer(accessToken) {
         if (!state) return
         setIsPlaying(!state.paused)
         setCurrentTrackId(state.track_window?.current_track?.id ?? null)
+        setDuration(state.duration)
+        setPosition(state.position)
       })
 
       player.connect()
       playerRef.current = player
+
+      // player_state_changed only fires on discrete events (play/pause/seek/
+      // track change), not continuously - polling getCurrentState() for the
+      // real position avoids the drift we'd get from estimating position via
+      // wall-clock time between those events.
+      pollInterval = setInterval(async () => {
+        const state = await player.getCurrentState()
+        if (state) setPosition(state.position)
+      }, 250)
     })
 
     return () => {
       cancelled = true
+      if (pollInterval) clearInterval(pollInterval)
       playerRef.current?.disconnect()
       playerRef.current = null
     }
@@ -80,5 +95,10 @@ export function useSpotifyPlayer(accessToken) {
 
   const togglePlay = () => playerRef.current?.togglePlay()
 
-  return { deviceId, isPremiumError, isPlaying, currentTrackId, playTrack, togglePlay }
+  const seek = (positionMs) => {
+    setPosition(positionMs)
+    playerRef.current?.seek(positionMs)
+  }
+
+  return { deviceId, isPremiumError, isPlaying, currentTrackId, duration, position, playTrack, togglePlay, seek }
 }

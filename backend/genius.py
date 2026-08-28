@@ -1,3 +1,4 @@
+import re
 import requests
 import os
 from bs4 import BeautifulSoup
@@ -5,23 +6,27 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# Matches a line that is ONLY a section annotation, e.g. "[Verse 1: Artist]"
+# or "[Chorus]" - these are Genius's structural markers, not sung lyrics.
+_SECTION_TAG = re.compile(r"^\[[^\]]*\]$")
+
 GENIUS_ACCESS_TOKEN = os.getenv("GENIUS_ACCESS_TOKEN")
 
-def get_lyrics(song_name, artist_name):
+_session = requests.Session()
+
+
+def _search_hits(song_name, artist_name):
     url = "https://api.genius.com/search"
     headers = {"Authorization": f"Bearer {GENIUS_ACCESS_TOKEN}"}
     params = {"q": f"{song_name} {artist_name}"}
 
-    response = requests.get(url, headers=headers, params=params)
+    response = _session.get(url, headers=headers, params=params)
     data = response.json()
+    return [hit["result"] for hit in data["response"]["hits"]]
 
-    if not data["response"]["hits"]:
-        return None
 
-    song_url = data["response"]["hits"][0]["result"]["url"]
-
-    # Scrape lyrics from Genius page
-    page = requests.get(song_url)
+def _scrape_lyrics_page(url):
+    page = _session.get(url)
     soup = BeautifulSoup(page.content, "html.parser")
 
     lyrics_divs = soup.find_all("div", {"data-lyrics-container": "true"})
@@ -41,3 +46,64 @@ def get_lyrics(song_name, artist_name):
 
     lyrics = "\n".join(lines).strip()
     return lyrics or None
+
+
+def get_lyrics(song_name, artist_name):
+    """Simple plain-text lookup, kept for the standalone /lyrics endpoint."""
+    result = find_lyrics(song_name, artist_name)
+    return result["original"] if result else None
+
+
+def find_lyrics(song_name, artist_name):
+    """Look up lyrics on Genius, working around a common quirk: for
+    internationally popular non-English songs, Genius's own crowd-sourced
+    translation/romanization pages (contributed by accounts like "Genius
+    Romanizations" or "Genius English Translations") often outrank the
+    real artist's own canonical lyrics page in search results - naively
+    taking the #1 hit can land on a Turkish translation page, for example.
+
+    Returns a dict {"original": text, "translated": text_or_None}.
+    `translated` is only set when we fall back to a matched "Romanized" +
+    "Genius English Translations" page pair (e.g. a song whose only
+    lyrics on Genius are romanized, such as many Japanese songs written
+    in the Latin alphabet, which Google Translate can't translate at all
+    even when told the source is Japanese - it expects native script).
+    That translation comes pre-made from Genius's own community rather
+    than our translate step, and since it's a separately-formatted page,
+    it won't align line-for-line with the original - the caller should
+    not try to zip them into synced per-line pairs.
+    """
+    hits = _search_hits(song_name, artist_name)
+    if not hits:
+        return None
+
+    artist_lower = artist_name.lower()
+    canonical = next(
+        (h for h in hits if artist_lower in h["primary_artist"]["name"].lower()),
+        None,
+    )
+    if canonical:
+        lyrics = _scrape_lyrics_page(canonical["url"])
+        return {"original": lyrics, "translated": None} if lyrics else None
+
+    romanized = next((h for h in hits if "(Romanized)" in h["title"]), None)
+    english = next(
+        (h for h in hits if h["primary_artist"]["name"] == "Genius English Translations"),
+        None,
+    )
+    if romanized and english:
+        original_text = _scrape_lyrics_page(romanized["url"])
+        translated_text = _scrape_lyrics_page(english["url"])
+        if original_text and translated_text:
+            return {"original": original_text, "translated": translated_text}
+
+    # Nothing matched the artist and no usable Romanized+English pair -
+    # fall back to whatever ranked first, same as the old behavior.
+    lyrics = _scrape_lyrics_page(hits[0]["url"])
+    return {"original": lyrics, "translated": None} if lyrics else None
+
+
+def strip_section_tags(text_lines):
+    """Drop lines that are purely a section annotation like "[Chorus]" or
+    "[Verse 1: Artist]" - not actual lyrics, just Genius's structure markers."""
+    return [line for line in text_lines if not _SECTION_TAG.match(line.strip())]
