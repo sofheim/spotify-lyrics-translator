@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database import engine, Base, SessionLocal
 from models import Translation
-from spotify import search_spotify
+from spotify import search_spotify, get_artist
 from genius import get_lyrics
 from translation import translate_to_english
 
@@ -25,6 +25,10 @@ def read_root():
 @app.get("/search")
 def search(query: str):
     return search_spotify(query)
+
+@app.get("/artist")
+def artist(artist_id: str):
+    return get_artist(artist_id)
 
 @app.get("/lyrics")
 def lyrics(song_name: str, artist_name: str):
