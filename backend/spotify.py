@@ -45,7 +45,7 @@ def search_spotify(query):
     token = get_spotify_token()
     url = "https://api.spotify.com/v1/search"
     headers = {"Authorization": f"Bearer {token}"}
-    params = {"q": query, "type": "track", "limit": 5}
+    params = {"q": query, "type": "track", "limit": 6}
 
     response = _session.get(url, headers=headers, params=params)
     return response.json()

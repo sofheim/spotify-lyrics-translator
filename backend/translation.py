@@ -39,7 +39,7 @@ def _translate_chunk(text, target="en"):
     return result.get_text()
 
 
-def translate_lines(lines):
+def translate_lines(lines, target="en"):
     """Translate each line independently (in parallel) so line N of the
     result always lines up with line N of the input - needed to keep
     original/translated lyrics in sync for highlighting. A single line
@@ -49,7 +49,7 @@ def translate_lines(lines):
 
     def _try(text):
         try:
-            return _translate_chunk(text), True
+            return _translate_chunk(text, target), True
         except Exception:
             return text, False
 

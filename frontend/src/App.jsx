@@ -21,9 +21,32 @@ function scrollLineIntoView(container, line) {
 
 const SUGGESTIONS_QUERY = 'year:2025 genre:pop'
 
+const LANGUAGES = [
+  { code: 'en', label: 'English' },
+  { code: 'es', label: 'Spanish' },
+  { code: 'fr', label: 'French' },
+  { code: 'de', label: 'German' },
+  { code: 'it', label: 'Italian' },
+  { code: 'pt', label: 'Portuguese' },
+  { code: 'nl', label: 'Dutch' },
+  { code: 'sv', label: 'Swedish' },
+  { code: 'no', label: 'Norwegian' },
+  { code: 'ru', label: 'Russian' },
+  { code: 'tr', label: 'Turkish' },
+  { code: 'ja', label: 'Japanese' },
+  { code: 'ko', label: 'Korean' },
+  { code: 'zh-CN', label: 'Chinese (Simplified)' },
+  { code: 'hi', label: 'Hindi' },
+  { code: 'ar', label: 'Arabic' },
+]
+
 function App() {
   const [query, setQuery] = useState('')
+  const [targetLang, setTargetLang] = useState('en')
   const [songs, setSongs] = useState([])
+  const [showingSearchResults, setShowingSearchResults] = useState(false)
+  const [suggestions, setSuggestions] = useState([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
   const [selectedSong, setSelectedSong] = useState(null)
   const [artistInfo, setArtistInfo] = useState(null)
   const [lyricLines, setLyricLines] = useState([])
@@ -36,6 +59,8 @@ function App() {
   const originalContainerRef = useRef(null)
   const translatedContainerRef = useRef(null)
   const searchRequestId = useRef(0)
+  const suggestionsRequestId = useRef(0)
+  const skipNextSuggestionFetch = useRef(false)
 
   const [accessToken, setAccessToken] = useState(null)
   const [spotifyUser, setSpotifyUser] = useState(null)
@@ -79,7 +104,7 @@ function App() {
   const canUseInAppPlayer = isPremium && player.deviceId && !player.isPremiumError
   // Position/duration only mean something once the SDK is actually playing
   // *this* song - otherwise they'd belong to whatever played previously.
-  const isPlayingSelectedSong = canUseInAppPlayer && selectedSong && player.currentTrackId === selectedSong.id
+  const isPlayingSelectedSong = canUseInAppPlayer && selectedSong && player.activeTrackId === selectedSong.id
 
   // Only highlight/auto-scroll when we have REAL synced timing. Estimated
   // timing has no way to know about instrumental intros, breaks, etc., so
@@ -108,8 +133,7 @@ function App() {
     setSpotifyUser(null)
   }
 
-  // Race-guarded so a slow older request can't overwrite newer results -
-  // relevant once search runs on every keystroke instead of just on submit.
+  // Race-guarded so a slow older request can't overwrite newer results.
   const runSearch = async (q) => {
     const requestId = ++searchRequestId.current
     setLoading(true)
@@ -126,22 +150,68 @@ function App() {
     }
   }
 
+  // Load the homepage's default "suggested songs" grid once on mount.
+  useEffect(() => {
+    runSearch(SUGGESTIONS_QUERY)
+  }, [])
+
+  // Lightweight live results for the Google-style autocomplete dropdown -
+  // separate from the results grid, so typing doesn't disturb whatever's
+  // currently playing/open until the user actually commits to a search.
+  const runSuggestions = async (q) => {
+    const requestId = ++suggestionsRequestId.current
+    try {
+      const response = await axios.get(`http://localhost:8000/search`, { params: { query: q } })
+      if (requestId === suggestionsRequestId.current) {
+        setSuggestions(response.data.tracks.items)
+      }
+    } catch (error) {
+      console.error('Error:', error)
+    }
+  }
+
+  useEffect(() => {
+    // Selecting a suggestion sets `query` to its name to show what was
+    // picked - skip re-triggering a fresh suggestions fetch for that one
+    // programmatic change, or the dropdown pops back open a moment later.
+    if (skipNextSuggestionFetch.current) {
+      skipNextSuggestionFetch.current = false
+      return
+    }
+    if (!query.trim() || query.trim().length < 2) {
+      setSuggestions([])
+      setShowSuggestions(false)
+      return
+    }
+    const timeout = setTimeout(() => {
+      runSuggestions(query)
+      setShowSuggestions(true)
+    }, 400)
+    return () => clearTimeout(timeout)
+  }, [query])
+
+  // An explicit search (button/Enter) is a hard commitment: stop whatever's
+  // currently playing and clear the open song so only the results show.
   const handleSearch = () => {
     if (!query.trim()) return
+    setShowSuggestions(false)
+    setSuggestions([])
+    if (isPlayingSelectedSong) player.pause()
+    setSelectedSong(null)
+    setArtistInfo(null)
+    setLyricLines([])
+    setError('')
+    setShowingSearchResults(true)
     runSearch(query)
   }
 
-  // Live search as the user types (debounced), falling back to a default
-  // "suggested songs" query when the box is empty so the page isn't blank.
-  useEffect(() => {
-    if (!query.trim()) {
-      runSearch(SUGGESTIONS_QUERY)
-      return
-    }
-    if (query.trim().length < 2) return
-    const timeout = setTimeout(() => runSearch(query), 400)
-    return () => clearTimeout(timeout)
-  }, [query])
+  const handleSelectSuggestion = (song) => {
+    skipNextSuggestionFetch.current = true
+    setQuery(song.name)
+    setShowSuggestions(false)
+    setSuggestions([])
+    handleSelectSong(song)
+  }
 
   const handleSelectSong = async (song) => {
     setLoading(true)
@@ -153,7 +223,12 @@ function App() {
     try {
       const [translateResponse, artistResponse] = await Promise.all([
         axios.get(`http://localhost:8000/translate`, {
-          params: { song_name: song.name, artist_name: song.artists[0].name, duration_ms: song.duration_ms },
+          params: {
+            song_name: song.name,
+            artist_name: song.artists[0].name,
+            duration_ms: song.duration_ms,
+            target_lang: targetLang,
+          },
         }),
         axios.get(`http://localhost:8000/artist`, {
           params: { artist_id: song.artists[0].id },
@@ -174,16 +249,22 @@ function App() {
     setLoading(false)
   }
 
+  // Re-fetch the open song's lyrics whenever the target language changes.
+  useEffect(() => {
+    if (selectedSong) handleSelectSong(selectedSong)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetLang])
+
   const songsGrid = songs.length > 0 && (
     <div style={{ marginBottom: '30px' }}>
-      <h2 style={{ fontSize: '16px' }}>{query.trim() ? 'Results' : 'Suggested Songs'}</h2>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px' }}>
+      <h2 style={{ fontSize: '16px' }}>{showingSearchResults ? 'Results' : 'Suggested Songs'}</h2>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', justifyContent: 'center' }}>
         {songs.map((song) => (
-          <div key={song.id} style={{ border: '1px solid #444', padding: '10px', backgroundColor: '#222', borderRadius: '8px', width: '150px' }}>
-            <h3 style={{ fontSize: '14px' }}>{song.name}</h3>
-            <p style={{ fontSize: '12px' }}>{song.artists[0].name}</p>
+          <div key={song.id} style={{ border: '1px solid #444', padding: '8px', backgroundColor: '#222', borderRadius: '8px', width: '130px' }}>
+            <h3 style={{ fontSize: '13px' }}>{song.name}</h3>
+            <p style={{ fontSize: '11px' }}>{song.artists[0].name}</p>
             {song.album.images[0] && <img src={song.album.images[0].url} alt={song.name} style={{ width: '100%', borderRadius: '4px' }} />}
-            <button onClick={() => handleSelectSong(song)} style={{ padding: '8px 16px', marginTop: '10px', cursor: 'pointer', width: '100%' }}>
+            <button onClick={() => handleSelectSong(song)} style={{ padding: '6px 10px', marginTop: '8px', cursor: 'pointer', width: '100%', fontSize: '12px' }}>
               Get Translated Lyrics
             </button>
           </div>
@@ -213,17 +294,61 @@ function App() {
         )}
       </div>
       <div style={{ marginBottom: '20px' }}>
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-          placeholder="Search songs..."
-          style={{ padding: '10px', width: '300px', fontSize: '16px' }}
-        />
+        <div style={{ position: 'relative', display: 'inline-block' }}>
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+            onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+            onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+            placeholder="Search songs..."
+            style={{ padding: '10px', width: '300px', fontSize: '16px' }}
+          />
+          {showSuggestions && suggestions.length > 0 && (
+            <div
+              style={{
+                position: 'absolute',
+                top: '100%',
+                left: 0,
+                width: '300px',
+                backgroundColor: '#222',
+                border: '1px solid #444',
+                borderRadius: '4px',
+                zIndex: 10,
+                maxHeight: '300px',
+                overflowY: 'auto',
+              }}
+            >
+              {suggestions.map((song) => (
+                <div
+                  key={song.id}
+                  onMouseDown={() => handleSelectSuggestion(song)}
+                  style={{ padding: '8px 10px', cursor: 'pointer', borderBottom: '1px solid #333', fontSize: '13px' }}
+                >
+                  <strong>{song.name}</strong> — {song.artists[0].name}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
         <button onClick={handleSearch} style={{ padding: '10px 20px', marginLeft: '10px', cursor: 'pointer' }}>
           Search
         </button>
+        <label style={{ marginLeft: '10px', fontSize: '14px' }}>
+          Translate to:
+          <select
+            value={targetLang}
+            onChange={(e) => setTargetLang(e.target.value)}
+            style={{ padding: '10px', marginLeft: '6px', fontSize: '14px', cursor: 'pointer' }}
+          >
+            {LANGUAGES.map((lang) => (
+              <option key={lang.code} value={lang.code}>
+                {lang.label}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
       {!selectedSong && songsGrid}
@@ -246,6 +371,12 @@ function App() {
                   >
                     {isPlayingSelectedSong && player.isPlaying ? '⏸ Pause' : '▶ Play Full Song'}
                   </button>
+
+                  {player.playError && (
+                    <p style={{ color: '#f87171', fontSize: '13px', marginTop: '10px' }}>
+                      Couldn't start playback: {player.playError}
+                    </p>
+                  )}
 
                   {isPlayingSelectedSong && (
                     <div style={{ marginTop: '12px' }}>
@@ -322,7 +453,7 @@ function App() {
 
         {lyricLines.length > 0 && (
           <div ref={translatedContainerRef} style={{ flex: 1, border: '1px solid #444', padding: '10px', maxHeight: '600px', overflowY: 'auto', backgroundColor: '#222', borderRadius: '8px' }}>
-            <h3>English{!syncedAccurate && ' (timing sync unavailable)'}</h3>
+            <h3>{LANGUAGES.find((l) => l.code === targetLang)?.label || 'Translated'}{!syncedAccurate && ' (timing sync unavailable)'}</h3>
             {lyricLines.map((line, i) => (
               <p
                 key={i}

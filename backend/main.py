@@ -100,13 +100,15 @@ def lyrics(song_name: str, artist_name: str):
     return {"lyrics": lyrics_text}
 
 @app.get("/translate")
-def translate(song_name: str, artist_name: str, duration_ms: int | None = None):
+def translate(song_name: str, artist_name: str, duration_ms: int | None = None, target_lang: str = "en"):
     db = SessionLocal()
 
-    # Check if we already have this translation cached
+    # Check if we already have this translation cached (a song is cached
+    # separately per target language, since the translated text differs)
     cached = db.query(Translation).filter(
         Translation.song_name == song_name,
-        Translation.artist == artist_name
+        Translation.artist == artist_name,
+        Translation.target_lang == target_lang,
     ).first()
 
     if cached:
@@ -125,7 +127,7 @@ def translate(song_name: str, artist_name: str, duration_ms: int | None = None):
         original_lines = [line["text"] for line in synced_lines]
         timestamps = [line["time_ms"] for line in synced_lines]
     else:
-        lyrics_result = find_lyrics(song_name, artist_name)
+        lyrics_result = find_lyrics(song_name, artist_name, target_lang)
         if not lyrics_result or not lyrics_result.get("original"):
             db.close()
             return {"error": "Lyrics not found"}
@@ -142,9 +144,9 @@ def translate(song_name: str, artist_name: str, duration_ms: int | None = None):
             # Genius could only offer a romanized page (e.g. many Japanese
             # songs written in the Latin alphabet, which Google Translate
             # can't translate at all) paired with its own community
-            # English translation from a separate page. Keep the original's
-            # own per-line timing and approximate-map the translation onto
-            # it rather than losing highlighting entirely.
+            # translation from a separate page. Keep the original's own
+            # per-line timing and approximate-map the translation onto it
+            # rather than losing highlighting entirely.
             pregenerated_translation = lyrics_result["translated"]
 
     # Translate line-by-line (not as one blob) so original/translated lines
@@ -152,7 +154,7 @@ def translate(song_name: str, artist_name: str, duration_ms: int | None = None):
     if pregenerated_translation is not None:
         translated_lines = _align_translation_lines(original_lines, pregenerated_translation)
     else:
-        translated_lines = translate_lines(original_lines)
+        translated_lines = translate_lines(original_lines, target_lang)
         if translated_lines is None:
             db.close()
             return {"error": "Translation failed, please try again"}
@@ -161,9 +163,9 @@ def translate(song_name: str, artist_name: str, duration_ms: int | None = None):
             # Google Translate silently failed on this text (e.g. lrclib's
             # synced lyrics for this song turned out to be romanized, same
             # problem as the Genius-only case above, just from a different
-            # source) - fall back to Genius's own paired English-translation
-            # page if one exists, keeping the real timestamps we already have.
-            fallback = find_lyrics(song_name, artist_name)
+            # source) - fall back to Genius's own paired translation page
+            # if one exists, keeping the real timestamps we already have.
+            fallback = find_lyrics(song_name, artist_name, target_lang)
             if fallback and fallback.get("translated"):
                 translated_lines = _align_translation_lines(original_lines, fallback["translated"])
 
@@ -177,6 +179,7 @@ def translate(song_name: str, artist_name: str, duration_ms: int | None = None):
     new_translation = Translation(
         song_name=song_name,
         artist=artist_name,
+        target_lang=target_lang,
         synced=synced,
         lines_json=json.dumps(lines),
     )
