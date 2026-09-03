@@ -14,7 +14,7 @@ function formatTime(ms) {
   return `${minutes}:${seconds.toString().padStart(2, '0')}`
 }
 
-// Scrolls only the container to bring line into view
+// Scrolls only the container to bring line into view.
 function scrollLineIntoView(container, line) {
   if (!container || !line) return
   const target = line.offsetTop - container.clientHeight / 2 + line.clientHeight / 2

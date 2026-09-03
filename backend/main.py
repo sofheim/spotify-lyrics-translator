@@ -156,7 +156,7 @@ def translate(song_name: str, artist_name: str, duration_ms: int | None = None, 
         for t, o, tr in zip(timestamps, original_lines, translated_lines)
     ]
 
-    # Save to database
+    # Save to database.
     new_translation = Translation(
         song_name=song_name,
         artist=artist_name,
