@@ -39,10 +39,15 @@ GENIUS_ACCESS_TOKEN=your_genius_access_token
 ```bash
 uvicorn main:app --reload
 ```
+<<<<<<< HEAD
 
 ### Frontend
 
 ```bash
+=======
+### Frontend
+```
+>>>>>>> 22de76a7b579aa3e12f3e9d5f0e071a22f77ea93
 cd frontend
 npm install
 ```
@@ -62,6 +67,15 @@ You'll need your own [Spotify Developer](https://developer.spotify.com/dashboard
 
 ## Known Limitations
 
+<<<<<<< HEAD
 - Translation alignment for romanized-lyrics fallbacks is approximate (proportional line-position mapping), not exact meaning-matched, since Genius's translation pages aren't formatted per-line
 - Free-tier hosting means the backend may take ~30-50s to wake up on the first request after a period of inactivity
 - Genius doesn't have every song, so lyrics lookup occasionally comes back empty
+=======
+[link here once deployed]
+
+Known Limitations
+
+- Translation alignment for romanized-lyrics fallbonal line-position mapping), not exactmeaning-matched, since Genius's translation pages aren't formatted per-line
+- Free-tier hosting means the backend may take ~30request after a period of inactivity
+>>>>>>> 22de76a7b579aa3e12f3e9d5f0e071a22f77ea93
