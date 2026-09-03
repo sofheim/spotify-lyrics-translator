@@ -34,9 +34,10 @@ SPOTIFY_CLIENT_SECRET=your_spotify_client_secret
 GENIUS_ACCESS_TOKEN=your_genius_access_token
 
 uvicorn main:app --reload
+```
 
-Frontend
-
+### Frontend
+```bash
 cd frontend
 npm install
 
@@ -46,11 +47,11 @@ VITE_SPOTIFY_REDIRECT_URI=http://127.0.0.1:5173/
 VITE_API_URL=http://localhost:8000
 
 npm run dev
-
+```
 You'll need your own Spotify Developer (https://developer.spotify.com/dashboard) app (with http://127.0.0.1:5173/ registered as a
 Redirect URI) and a Genius API (https://genius.com
 
-Known Limitations
+### Known Limitations
 
 - Translation alignment for romanized-lyrics fallbonal line-position mapping), not exactmeaning-matched, since Genius's translation pages aren't formatted per-line
 - Free-tier hosting means the backend may take ~30request after a period of inactivity
