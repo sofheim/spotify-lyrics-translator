@@ -22,8 +22,28 @@ function scrollLineIntoView(container, line) {
 
 const SUGGESTIONS_QUERY = 'year:2025 genre:pop'
 
+const LANGUAGES = [
+  { code: 'en', label: 'English' },
+  { code: 'es', label: 'Spanish' },
+  { code: 'fr', label: 'French' },
+  { code: 'de', label: 'German' },
+  { code: 'it', label: 'Italian' },
+  { code: 'pt', label: 'Portuguese' },
+  { code: 'nl', label: 'Dutch' },
+  { code: 'sv', label: 'Swedish' },
+  { code: 'no', label: 'Norwegian' },
+  { code: 'ru', label: 'Russian' },
+  { code: 'tr', label: 'Turkish' },
+  { code: 'ja', label: 'Japanese' },
+  { code: 'ko', label: 'Korean' },
+  { code: 'zh-CN', label: 'Chinese (Simplified)' },
+  { code: 'hi', label: 'Hindi' },
+  { code: 'ar', label: 'Arabic' },
+]
+
 function App() {
   const [query, setQuery] = useState('')
+  const [targetLang, setTargetLang] = useState('en')
   const [songs, setSongs] = useState([])
   const [showingSearchResults, setShowingSearchResults] = useState(false)
   const [suggestions, setSuggestions] = useState([])
@@ -198,7 +218,7 @@ function App() {
     try {
       const [translateResponse, artistResponse] = await Promise.all([
         axios.get(`http://localhost:8000/translate`, {
-          params: { song_name: song.name, artist_name: song.artists[0].name, duration_ms: song.duration_ms },
+          params: { song_name: song.name, artist_name: song.artists[0].name, duration_ms: song.duration_ms, target_lang: targetLang },
         }),
         axios.get(`http://localhost:8000/artist`, {
           params: { artist_id: song.artists[0].id },
@@ -218,6 +238,37 @@ function App() {
     }
     setLoading(false)
   }
+
+  // Re-translate the currently open song when the target language changes,
+  // without re-fetching the player/artist info that doesn't depend on it.
+  useEffect(() => {
+    if (!selectedSong) return
+    setLoading(true)
+    setError('')
+    axios
+      .get(`http://localhost:8000/translate`, {
+        params: {
+          song_name: selectedSong.name,
+          artist_name: selectedSong.artists[0].name,
+          duration_ms: selectedSong.duration_ms,
+          target_lang: targetLang,
+        },
+      })
+      .then((response) => {
+        if (response.data.error) {
+          setError(response.data.error)
+        } else {
+          setLyricLines(response.data.lines)
+          setSyncedAccurate(response.data.synced)
+        }
+      })
+      .catch((err) => {
+        console.error('Error:', err)
+        setError('Something went wrong fetching the translation.')
+      })
+      .finally(() => setLoading(false))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetLang])
 
   const songsGrid = songs.length > 0 && (
     <div className="mt-[10px] mb-[30px]">
@@ -286,6 +337,17 @@ function App() {
         <button onClick={handleSearch} className={`${BUTTON_CLASS} ml-2.5 px-5 py-2.5`}>
           Search
         </button>
+        <select
+          value={targetLang}
+          onChange={(e) => setTargetLang(e.target.value)}
+          className="ml-2.5 rounded-[4px] border border-border bg-panel px-2.5 py-2.5 text-[16px] text-white"
+        >
+          {LANGUAGES.map((lang) => (
+            <option key={lang.code} value={lang.code}>
+              {lang.label}
+            </option>
+          ))}
+        </select>
       </div>
 
       {!selectedSong && <p className="mb-5 text-center text-gray-300 ">Select a song below to see the player and artist info.</p>}
