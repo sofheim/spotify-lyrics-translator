@@ -1,22 +1,22 @@
 # Spotify Lyrics Translator
 
-A full-stack app that searches Spotify, pulls up a song's lyrics, and translates them into your language of choice — with real-time synced highlighting that follows along as the song plays.
+A full-stack app that searches Spotify, pulls up a song's lyrics, and translates them into your language of choice. Real-time synced highlighting that follows along as the song plays.
 
 **Live demo:** https://spotify-song-translator-lqlc.vercel.app/
 
 ## Features
 
 - **Spotify search** with a live autocomplete dropdown
-- **Spotify OAuth login** (PKCE flow) — Premium users get full in-app playback via the Spotify Web Playback SDK (play/pause, seek bar); non-Premium users get an embedded Spotify player
-- **Synced lyric highlighting**: when real per-line timing is available (via [lrclib](https://lrclib.net)), the current line highlights and auto-scrolls in time with playback; otherwise timing is estimated proportionally from each line's length
+- **Spotify OAuth login** Premium users get full in-app playback via the Spotify Web Playback SDK. Non-Premium users get an embedded Spotify player
+- **Synced lyric highlighting**: when real per-line timing is available (via [lrclib](https://lrclib.net)), the current line highlights and auto-scrolls in time with playback. Otherwise timing is estimated proportionally from each line's length
 - **Translation into 16 languages**, with results cached so repeat lookups are instant
-- **Romanized-lyrics handling**: for songs where only Latin-alphabet transliterated lyrics exist (e.g. many Japanese songs), automatically falls back to Genius's own community-translated lyrics page instead of feeding unrecognizable text to Google Translate
+- **Romanized-lyrics handling**: for songs where only Latin-alphabet transliterated lyrics exist, automatically falls back to Genius's own community-translated lyrics page instead of feeding unrecognizable text to google translate
 
 ## Tech Stack
 
 **Backend:** FastAPI (Python), SQLAlchemy + SQLite, Genius API, lrclib
 
-**Frontend:** React + Vite, Tailwind CSS v4, the S
+**Frontend:** React + Vite, Tailwind CSS v4, the Spotify Web Playback SDK
 
 ## Running locally
 
@@ -49,10 +49,10 @@ VITE_API_URL=http://localhost:8000
 npm run dev
 ```
 You'll need your own Spotify Developer (https://developer.spotify.com/dashboard) app (with http://127.0.0.1:5173/ registered as a
-Redirect URI) and a Genius API (https://genius.com
+Redirect URI) and a Genius API (https://genius.com/api-clients) client.
 
 ### Known Limitations
 
-- Translation alignment for romanized-lyrics fallbonal line-position mapping), not exactmeaning-matched, since Genius's translation pages aren't formatted per-line
-- Free-tier hosting means the backend may take ~30request after a period of inactivity
+- Translation alignment for romanized-lyrics are not exactmeaning-matched, since Genius's translation pages aren't formatted per-line
+- Free-tier hosting means the backend may take 30-50 sec after a period of inactivity
 - Genius doesn't have every song, so lyrics lookup occasionally comes back empty
