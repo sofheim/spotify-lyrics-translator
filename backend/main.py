@@ -1,4 +1,5 @@
 import json
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database import engine, Base, SessionLocal
@@ -55,9 +56,14 @@ def _estimate_timestamps(lines, duration_ms):
 
 app = FastAPI()
 
+# Comma-separated list of allowed frontend origins. Defaults to the local
+# Vite dev server; set FRONTEND_URL in production to the deployed frontend's
+# URL(s) instead of leaving this open to any site.
+ALLOWED_ORIGINS = os.getenv("FRONTEND_URL", "http://127.0.0.1:5173").split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -137,8 +143,11 @@ def translate(song_name: str, artist_name: str, duration_ms: int | None = None, 
 
         if _translation_looks_failed(original_lines, translated_lines):
             # translation fails -> fall back to Genius's translation page
-            # if one exists, keeping real timestamps
-            fallback = find_lyrics(song_name, artist_name, target_lang)
+            # if one exists, keeping real timestamps. translation_only=True
+            # so this isn't derailed by a canonical native-script page also
+            # existing on Genius for this song - we only want the
+            # translated text here, not a fresh "original" to replace ours.
+            fallback = find_lyrics(song_name, artist_name, target_lang, translation_only=True)
             if fallback and fallback.get("translated"):
                 translated_lines = _align_translation_lines(original_lines, fallback["translated"])
 

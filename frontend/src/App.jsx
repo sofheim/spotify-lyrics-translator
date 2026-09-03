@@ -5,6 +5,7 @@ import { useSpotifyPlayer } from './useSpotifyPlayer'
 
 const BUTTON_CLASS = 'cursor-pointer rounded-[4px] border border-border bg-panel text-white hover:bg-panel-dark'
 const PANEL_CLASS = 'border border-border bg-panel rounded-[8px]'
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 function formatTime(ms) {
   const totalSeconds = Math.max(0, Math.floor(ms / 1000))
@@ -136,7 +137,7 @@ function App() {
     const requestId = ++searchRequestId.current
     setLoading(true)
     try {
-      const response = await axios.get(`http://localhost:8000/search`, { params: { query: q } })
+      const response = await axios.get(`${API_URL}/search`, { params: { query: q } })
       if (requestId === searchRequestId.current) {
         setSongs(response.data.tracks.items)
       }
@@ -157,7 +158,7 @@ function App() {
   const runSuggestions = async (q) => {
     const requestId = ++suggestionsRequestId.current
     try {
-      const response = await axios.get(`http://localhost:8000/search`, { params: { query: q } })
+      const response = await axios.get(`${API_URL}/search`, { params: { query: q } })
       if (requestId === suggestionsRequestId.current) {
         setSuggestions(response.data.tracks.items)
       }
@@ -217,10 +218,10 @@ function App() {
     setError('')
     try {
       const [translateResponse, artistResponse] = await Promise.all([
-        axios.get(`http://localhost:8000/translate`, {
+        axios.get(`${API_URL}/translate`, {
           params: { song_name: song.name, artist_name: song.artists[0].name, duration_ms: song.duration_ms, target_lang: targetLang },
         }),
-        axios.get(`http://localhost:8000/artist`, {
+        axios.get(`${API_URL}/artist`, {
           params: { artist_id: song.artists[0].id },
         }),
       ])
@@ -246,7 +247,7 @@ function App() {
     setLoading(true)
     setError('')
     axios
-      .get(`http://localhost:8000/translate`, {
+      .get(`${API_URL}/translate`, {
         params: {
           song_name: selectedSong.name,
           artist_name: selectedSong.artists[0].name,
@@ -434,7 +435,7 @@ function App() {
 
         {lyricLines.length > 0 && (
           <div ref={translatedContainerRef} className={`${PANEL_CLASS} max-h-[600px] flex-1 overflow-y-auto p-2.5`}>
-            <h3 className="mb-2 text-lg font-semibold">English{!syncedAccurate && ' (timing sync unavailable)'}</h3>
+            <h3 className="mb-2 text-lg font-semibold">{LANGUAGES.find((l) => l.code === targetLang)?.label || targetLang}{!syncedAccurate && ' (timing sync unavailable)'}</h3>
             {lyricLines.map((line, i) => (
               <p
                 key={i}

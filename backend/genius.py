@@ -66,7 +66,7 @@ def get_lyrics(song_name, artist_name):
     return result["original"] if result else None
 
 
-def find_lyrics(song_name, artist_name, target_lang="en"):
+def find_lyrics(song_name, artist_name, target_lang="en", translation_only=False):
     """Look up lyrics on Genius, working around a common quirk: for
     internationally popular non-English songs, Genius's own crowd-sourced
     translation/romanization pages (contributed by accounts like "Genius
@@ -84,14 +84,38 @@ def find_lyrics(song_name, artist_name, target_lang="en"):
     rather than our translate step, and since it's a separately-formatted
     page, it won't align line-for-line with the original - the caller
     should not try to zip them into synced per-line pairs.
+
+    If translation_only=True, skip straight to looking for a translation-
+    team page and ignore any canonical/native original page entirely. This
+    is for callers that already have their own original lyrics from
+    elsewhere (e.g. romanized synced lyrics from lrclib) and just need
+    Genius's translated text to pair with them - a canonical native-script
+    page existing on Genius too (common - "Lemon" by Kenshi Yonezu has
+    both) shouldn't stop us from finding the separate translation page.
     """
     hits = _search_hits(song_name, artist_name)
     if not hits:
         return None
 
+    if translation_only:
+        team_name = GENIUS_TRANSLATION_TEAMS.get(target_lang)
+        if not team_name:
+            return None
+        translation_hit = next(
+            (h for h in hits if h["primary_artist"]["name"] == team_name), None
+        )
+        if not translation_hit:
+            return None
+        translated_text = _scrape_lyrics_page(translation_hit["url"])
+        return {"original": None, "translated": translated_text} if translated_text else None
+
     artist_lower = artist_name.lower()
     canonical = next(
-        (h for h in hits if artist_lower in h["primary_artist"]["name"].lower()),
+        (
+            h for h in hits
+            if artist_lower in h["primary_artist"]["name"].lower()
+            and "(Romanized)" not in h["title"]
+        ),
         None,
     )
     if canonical:
