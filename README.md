@@ -2,6 +2,8 @@
 
 A full-stack app that searches Spotify, pulls up a song's lyrics, and translates them into your language of choice — with real-time synced highlighting that follows along as the song plays.
 
+**Live demo:** https://spotify-song-translator-lqlc.vercel.app/
+
 ## Features
 
 - **Spotify search** with a live autocomplete dropdown
@@ -19,38 +21,47 @@ A full-stack app that searches Spotify, pulls up a song's lyrics, and translates
 ## Running locally
 
 ### Backend
+
 ```bash
 cd backend
 python -m venv venv
 source venv/bin/activate   # or venv\Scripts\activate on Windows
 pip install -r requirements.txt
+```
 
-Create backend/.env:
+Create `backend/.env`:
+```
 SPOTIFY_CLIENT_ID=your_spotify_client_id
 SPOTIFY_CLIENT_SECRET=your_spotify_client_secret
 GENIUS_ACCESS_TOKEN=your_genius_access_token
+```
 
+```bash
 uvicorn main:app --reload
+```
 
-Frontend
+### Frontend
 
+```bash
 cd frontend
 npm install
+```
 
-Create frontend/.env:
+Create `frontend/.env`:
+```
 VITE_SPOTIFY_CLIENT_ID=your_spotify_client_id
 VITE_SPOTIFY_REDIRECT_URI=http://127.0.0.1:5173/
 VITE_API_URL=http://localhost:8000
+```
 
+```bash
 npm run dev
+```
 
-You'll need your own Spotify Developer (https://developer.spotify.com/dashboard) app (with http://127.0.0.1:5173/ registered as a Redirect URI) and a Genius API (https://genius.com
+You'll need your own [Spotify Developer](https://developer.spotify.com/dashboard) app (with `http://127.0.0.1:5173/` registered as a Redirect URI) and a [Genius API](https://genius.com/api-clients) client.
 
-Live Demo
+## Known Limitations
 
-[link here once deployed]
-
-Known Limitations
-
-- Translation alignment for romanized-lyrics fallbonal line-position mapping), not exactmeaning-matched, since Genius's translation pages aren't formatted per-line
-- Free-tier hosting means the backend may take ~30request after a period of inactivity
+- Translation alignment for romanized-lyrics fallbacks is approximate (proportional line-position mapping), not exact meaning-matched, since Genius's translation pages aren't formatted per-line
+- Free-tier hosting means the backend may take ~30-50s to wake up on the first request after a period of inactivity
+- Genius doesn't have every song, so lyrics lookup occasionally comes back empty
