@@ -3,9 +3,12 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 
 DATABASE_URL = "sqlite:///./translations.db"
 
-engine = create_engine(
-    DATABASE_URL, connect_args={"check_same_thread": False}
+#opens a connection to a database
+engine = create_engine( 
+    DATABASE_URL, connect_args={"check_same_thread": False} #Turns off SQLite safety check
 )
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+#To control when writes happen to the database
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine) 
 
-Base = declarative_base()
+#Creates a Base class that database table defs will inherit from
+Base = declarative_base() 
