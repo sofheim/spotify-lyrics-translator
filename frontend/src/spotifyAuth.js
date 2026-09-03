@@ -77,9 +77,9 @@ export function logout() {
   localStorage.removeItem(TOKEN_KEY)
 }
 
-// Returns a currently-valid access token, transparently refreshing it if
-// it's expired (or close to it). Returns null if the user isn't logged in
-// or the refresh token has been revoked.
+// Returns a currently-valid access token and refreshing it if
+// it's expired 
+// Returns null if the user isn't logged in or no refresh token 
 export async function getValidAccessToken() {
   const stored = getStoredToken()
   if (!stored) return null

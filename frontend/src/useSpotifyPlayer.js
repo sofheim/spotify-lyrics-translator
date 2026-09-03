@@ -19,20 +19,15 @@ function loadSpotifySdk() {
   return sdkLoadPromise
 }
 
-// Manages a Spotify Connect device inside this browser tab via the Web
-// Playback SDK. Pass `accessToken` only once we know the account is
-// Premium (the SDK can't create a device for Free accounts at all).
+// Manages a Spotify Connect device inside the browser tab via the Web
+// Playback SDK. Pass accesstoken only once we know the account is premium
 export function useSpotifyPlayer(accessToken) {
   const [deviceId, setDeviceId] = useState(null)
   const [isPremiumError, setIsPremiumError] = useState(false)
   const [playError, setPlayError] = useState(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTrackId, setCurrentTrackId] = useState(null)
-  // The track we actually told Spotify to play, as opposed to `currentTrackId`
-  // (what the SDK reports back). Spotify sometimes "relinks" a requested
-  // track to a different regional/licensing equivalent and reports THAT id
-  // instead - trusting our own request avoids losing sync over an id
-  // mismatch for a song that's actually playing correctly.
+  // the track we told Spotify to play
   const [activeTrackId, setActiveTrackId] = useState(null)
   const [duration, setDuration] = useState(0)
   const [position, setPosition] = useState(0)
@@ -78,10 +73,8 @@ export function useSpotifyPlayer(accessToken) {
       player.connect()
       playerRef.current = player
 
-      // player_state_changed only fires on discrete events (play/pause/seek/
-      // track change), not continuously - polling getCurrentState() for the
-      // real position avoids the drift we'd get from estimating position via
-      // wall-clock time between those events.
+      // player_state_changed only fires on events (play/pause/seek/
+      // track change), not continuously 
       pollInterval = setInterval(async () => {
         const state = await player.getCurrentState()
         if (state) setPosition(state.position)
@@ -107,10 +100,7 @@ export function useSpotifyPlayer(accessToken) {
       body: JSON.stringify({ uris: [`spotify:track:${trackId}`] }),
     })
 
-  // Polls deviceIdRef for a value different from `staleId` - used after
-  // forcing a reconnect, since that tears down the old device and creates a
-  // brand new one asynchronously (we can't just await the 'ready' event
-  // directly from here without restructuring the whole connection effect).
+  // Polls deviceIdRef for a value different from `staleId` 
   const _waitForFreshDeviceId = (staleId, timeoutMs = 8000) =>
     new Promise((resolve) => {
       const start = Date.now()
@@ -134,12 +124,7 @@ export function useSpotifyPlayer(accessToken) {
       let response = await _requestPlay(staleId, trackId)
 
       if (response.status === 404) {
-        // "Device not found" can mean the device was just created and
-        // hasn't propagated yet, OR that this device has gone stale (e.g.
-        // the tab sat idle for a long time and Spotify silently dropped
-        // the connection without firing 'not_ready'). Forcing a full
-        // reconnect - tearing down and recreating the SDK player, same as
-        // what a page reload does - covers both cases with one fix.
+        // Forcing a full reconnect - tearing down and recreating the SDK player
         setReconnectToken((t) => t + 1)
         const freshId = await _waitForFreshDeviceId(staleId)
         if (freshId) {
@@ -153,7 +138,7 @@ export function useSpotifyPlayer(accessToken) {
           const body = await response.json()
           if (body?.error?.message) message = body.error.message
         } catch {
-          // response body wasn't JSON - keep the generic message
+          // response body wasn't JSON 
         }
         setPlayError(message)
       } else {
