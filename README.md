@@ -1,6 +1,6 @@
 # Spotify Lyrics Translator
 
-A full-stack app that searches Spotify, pulls up a song's lyrics, and translates them into your language of choice. Real-time synced highlighting that follows along as the song plays.
+A full-stack app that searches Spotify, and translates a song's lyrics into your language of choice with real-time synced highlighting.
 
 **Live demo:** https://spotify-song-translator-lqlc.vercel.app/
 
