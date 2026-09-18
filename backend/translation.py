@@ -1,8 +1,11 @@
 import requests
-from bs4 import BeautifulSoup
 from concurrent.futures import ThreadPoolExecutor
 
-GOOGLE_TRANSLATE_URL = "https://translate.google.com/m"
+# The /m endpoint (the mobile web page) gets rate-limited hard, returning
+# 429 on nearly every request once deployed on a cloud host. This is the
+# endpoint the gtx web client itself calls under the hood, and it holds up
+# far better - no API key needed, but return format is JSON, not HTML.
+GOOGLE_TRANSLATE_URL = "https://translate.googleapis.com/translate_a/single"
 MAX_WORKERS = 8
 
 # Call the endpoint directly
@@ -22,18 +25,20 @@ _session.mount("https://", _adapter)
 def _translate_chunk(text, target="en"):
     response = _session.get(
         GOOGLE_TRANSLATE_URL,
-        params={"sl": "auto", "tl": target, "q": text},
+        params={"client": "gtx", "sl": "auto", "tl": target, "dt": "t", "q": text},
         headers=HEADERS,
         timeout=10,
     )
     response.raise_for_status()
 
-    soup = BeautifulSoup(response.text, "html.parser")
-    result = soup.find("div", {"class": "result-container"})
-    if result is None:
+    data = response.json()
+    # data[0] is a list of [translated_segment, original_segment, ...]
+    # tuples - Google splits long input into multiple sentence segments.
+    segments = data[0] if data and data[0] else None
+    if not segments:
         raise RuntimeError("Google Translate returned an unexpected response")
 
-    return result.get_text()
+    return "".join(segment[0] for segment in segments)
 
 #translate each line independently so that the result lines up with the input
 #Failed lines returns to default lang

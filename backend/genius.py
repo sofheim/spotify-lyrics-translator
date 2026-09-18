@@ -12,7 +12,15 @@ _SECTION_TAG = re.compile(r"^\[[^\]]*\]$")
 
 GENIUS_ACCESS_TOKEN = os.getenv("GENIUS_ACCESS_TOKEN")
 
+# Genius (via Cloudflare) 403s requests.get's default "python-requests" UA
+# on the lyrics pages - a real browser UA is required to scrape them.
 _session = requests.Session()
+_session.headers.update({
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    )
+})
 
 # Genius's crowd-translation teams don't follow one consistent naming
 # pattern per language, so this can only cover ones we've confirmed exist.
