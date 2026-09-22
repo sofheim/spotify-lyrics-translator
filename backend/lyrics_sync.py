@@ -6,8 +6,8 @@ LRCLIB_URL = "https://lrclib.net/api/get"
 _session = requests.Session()
 
 _LRC_LINE = re.compile(r"\[(\d+):(\d+(?:\.\d+)?)\](.*)")
-# Some LRC submissions include section markers like "[Chorus]" as their own
-# timestamped line - not actual lyrics, so we drop them like we do for Genius.
+# Some LRC submissions include section markers like [Chorus] as their own
+# timestamped line and not actual lyrics, so we drop them like for Genius.
 _SECTION_TAG = re.compile(r"^\[[^\]]*\]$")
 
 
